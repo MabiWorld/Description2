@@ -30,6 +30,9 @@ class Description2 {
 		if ( $parserOutput->getProperty( 'description' ) !== false ) {
 			return;
 		}
+		$desc = preg_replace( '%\[\[SMW::(off|on)\]\]%i', '', $desc );
+		$desc = preg_replace( '%<br\s*/?>%i', "\n", $desc );
+		$desc = html_entity_decode( html_entity_decode( $desc ) );
 		$parserOutput->setProperty( 'description', $desc );
 	}
 
@@ -78,7 +81,12 @@ class Description2 {
 		}
 		$parser->setFunctionHook(
 			'description2',
-			[ static::class, 'parserFunctionCallback' ],
+			[ static::class, 'parserFunctionCallbackShow' ],
+			Parser::SFH_OBJECT_ARGS
+		);
+		$parser->setFunctionHook(
+			'description2hide',
+			[ static::class, 'parserFunctionCallbackHide' ],
 			Parser::SFH_OBJECT_ARGS
 		);
 		$parser->setFunctionTagHook(
@@ -95,7 +103,12 @@ class Description2 {
 	 * @param string[] $args The arguments of the parser function call.
 	 * @return string
 	 */
-	public static function parserFunctionCallback( Parser $parser, PPFrame $frame, $args ) {
+	public static function parserFunctionCallbackShow( Parser $parser, PPFrame $frame, $args ) {
+		$desc = isset( $args[0] ) ? $frame->expand( $args[0] ) : '';
+		self::setDescription( $parser, $desc );
+		return $desc;
+	}
+	public static function parserFunctionCallbackHide( Parser $parser, PPFrame $frame, $args ) {
 		$desc = isset( $args[0] ) ? $frame->expand( $args[0] ) : '';
 		self::setDescription( $parser, $desc );
 		return '';

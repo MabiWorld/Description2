@@ -13,4 +13,5 @@ $magicWords = [];
  */
 $magicWords['en'] = [
 	'description2' => [ 0, 'description2' ],
+	'description2hide' => [ 0, 'description2hide' ],
 ];
