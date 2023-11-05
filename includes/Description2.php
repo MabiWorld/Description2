@@ -26,14 +26,22 @@ class Description2 {
 	 * @param string $desc The description text.
 	 */
 	public static function setDescription( Parser $parser, $desc ) {
-		$parserOutput = $parser->getOutput();
-		if ( $parserOutput->getProperty( 'description' ) !== false ) {
-			return;
-		}
 		$desc = preg_replace( '%\[\[SMW::(off|on)\]\]%i', '', $desc );
 		$desc = preg_replace( '%<br\s*/?>%i', "\n", $desc );
 		$desc = html_entity_decode( html_entity_decode( $desc ) );
-		$parserOutput->setProperty( 'description', $desc );
+		$parserOutput = $parser->getOutput();
+		if ( method_exists( $parserOutput, 'getPageProperty' ) ) {
+			// MW 1.38+
+			if ( $parserOutput->getPageProperty( 'description' ) !== null ) {
+				return;
+			}
+			$parserOutput->setPageProperty( 'description', $desc );
+		} else {
+			if ( $parserOutput->getProperty( 'description' ) !== false ) {
+				return;
+			}
+			$parserOutput->setProperty( 'description', $desc );
+		}
 	}
 
 	/**
@@ -89,11 +97,6 @@ class Description2 {
 			[ static::class, 'parserFunctionCallbackHide' ],
 			Parser::SFH_OBJECT_ARGS
 		);
-		$parser->setFunctionTagHook(
-			'metadesc',
-			[ static::class, 'tagCallback' ],
-			Parser::SFH_OBJECT_ARGS
-		);
 		return true;
 	}
 
@@ -115,29 +118,21 @@ class Description2 {
 	}
 
 	/**
-	 * @param Parser $parser The parser.
-	 * @param PPFrame $frame Not used.
-	 * @param string $content The contents of the tag (if any).
-	 * @param string[] $attributes The tag attributes (if any).
-	 * @return string
-	 */
-	public static function tagCallback( Parser $parser, PPFrame $frame, $content, $attributes ) {
-		$contentAttr = isset( $attributes['content'] ) ? $attributes['content'] : null;
-		$desc = isset( $content ) ? $content : $contentAttr;
-		if ( isset( $desc ) ) {
-			self::setDescription( $parser, $desc );
-		}
-		return '';
-	}
-
-	/**
 	 * @param OutputPage &$out The output page to add the meta element to.
 	 * @param ParserOutput $parserOutput The parser output to get the description from.
 	 */
 	public static function onOutputPageParserOutput( OutputPage &$out, ParserOutput $parserOutput ) {
 		// Export the description from the main parser output into the OutputPage
-		$description = $parserOutput->getProperty( 'description' );
-		if ( $description !== false ) {
+		if ( method_exists( $parserOutput, 'getPageProperty' ) ) {
+			// MW 1.38+
+			$description = $parserOutput->getPageProperty( 'description' );
+		} else {
+			$description = $parserOutput->getProperty( 'description' );
+			if ( $description === false ) {
+				$description = null;
+			}
+		}
+		if ( $description !== null ) {
 			$out->addMeta( 'description', $description );
 		}
 	}
