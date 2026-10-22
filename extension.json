@@ -9,16 +9,41 @@
 	"license-name": "GPL-2.0-or-later",
 	"type": "other",
 	"requires": {
-		"MediaWiki": ">= 1.31.0"
+		"MediaWiki": ">= 1.38.0"
 	},
 	"config": {
-		"EnableMetaDescriptionFunctions": false
+		"EnableMetaDescriptionFunctions": false,
+		"DescriptionMaxChars": 300,
+		"DescriptionAlgorithm": "MediaWiki\\Extension\\Description2\\RemexDescriptionProvider",
+		"DescriptionRemoveElements": [
+			"table",
+			"div",
+			"script",
+			"style",
+			"figure",
+			"input",
+			"div.infobox",
+			"div.ambox",
+			"div.dmbox",
+			"ul.gallery",
+			".mw-editsection",
+			"sup.reference",
+			"ul.references",
+			".error",
+			".nomobile",
+			".noprint",
+			".noexcerpt",
+			".sortkey"
+		]
 	},
 	"ConfigRegistry": {
 		"Description2": "GlobalVarConfig::newInstance"
 	},
-	"AutoloadClasses": {
-		"MediaWiki\\Extension\\Description2\\Description2": "includes/Description2.php"
+	"ServiceWiringFiles": [
+		"includes/ServiceWiring.php"
+	],
+	"AutoloadNamespaces": {
+		"MediaWiki\\Extension\\Description2\\": "includes/"
 	},
 	"ExtensionMessagesFiles": {
 		"Description2Magic": "Description2.i18n.magic.php"
@@ -28,10 +53,19 @@
 			"i18n"
 		]
 	},
+	"HookHandlers": {
+		"Description2": {
+			"class": "MediaWiki\\Extension\\Description2\\Hooks",
+			"services": [
+				"ConfigFactory",
+				"Description2.DescriptionProvider"
+			]
+		}
+	},
 	"Hooks": {
-		"OutputPageParserOutput": "MediaWiki\\Extension\\Description2\\Description2::onOutputPageParserOutput",
-		"ParserAfterTidy": "MediaWiki\\Extension\\Description2\\Description2::onParserAfterTidy",
-		"ParserFirstCallInit": "MediaWiki\\Extension\\Description2\\Description2::onParserFirstCallInit"
+		"OutputPageParserOutput": "Description2",
+		"ParserAfterTidy": "Description2",
+		"ParserFirstCallInit": "Description2"
 	},
 	"manifest_version": 1
 }

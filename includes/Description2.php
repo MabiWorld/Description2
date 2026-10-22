@@ -2,10 +2,7 @@
 
 namespace MediaWiki\Extension\Description2;
 
-use MediaWiki\MediaWikiServices;
-use OutputPage;
 use Parser;
-use ParserOutput;
 use PPFrame;
 
 /**
@@ -20,7 +17,6 @@ use PPFrame;
  */
 
 class Description2 {
-
 	/**
 	 * @param Parser $parser The parser.
 	 * @param string $desc The description text.
@@ -30,74 +26,10 @@ class Description2 {
 		$desc = preg_replace( '%<br\s*/?>%i', "\n", $desc );
 		$desc = html_entity_decode( html_entity_decode( $desc ) );
 		$parserOutput = $parser->getOutput();
-		if ( method_exists( $parserOutput, 'getPageProperty' ) ) {
-			// MW 1.38+
-			if ( $parserOutput->getPageProperty( 'description' ) !== null ) {
-				return;
-			}
-			$parserOutput->setPageProperty( 'description', $desc );
-		} else {
-			if ( $parserOutput->getProperty( 'description' ) !== false ) {
-				return;
-			}
-			$parserOutput->setProperty( 'description', $desc );
+		if ( $parserOutput->getPageProperty( 'description' ) !== null ) {
+			return;
 		}
-	}
-
-	/**
-	 * @link https://www.mediawiki.org/wiki/Manual:Hooks/ParserAfterTidy
-	 * @param Parser &$parser The parser.
-	 * @param string &$text The page text.
-	 * @return bool
-	 */
-	public static function onParserAfterTidy( Parser &$parser, &$text ) {
-		$desc = '';
-
-		$pattern = '%<table\b[^>]*+>(?:(?R)|[^<]*+(?:(?!</?table\b)<[^<]*+)*+)*+</table>%i';
-		$myText = preg_replace( $pattern, '', $text );
-
-		$paragraphs = [];
-		if ( preg_match_all( '#<p>.*?</p>#is', $myText, $paragraphs ) ) {
-			foreach ( $paragraphs[0] as $paragraph ) {
-				$paragraph = trim( strip_tags( $paragraph ) );
-				if ( !$paragraph ) {
-					continue;
-				}
-				$desc = $paragraph;
-				break;
-			}
-		}
-
-		if ( $desc ) {
-			self::setDescription( $parser, $desc );
-		}
-
-		return true;
-	}
-
-	/**
-	 * @param Parser &$parser The parser.
-	 * @return bool
-	 */
-	public static function onParserFirstCallInit( Parser &$parser ) {
-		$config = MediaWikiServices::getInstance()
-			->getConfigFactory()
-			->makeConfig( 'Description2' );
-		if ( !$config->get( 'EnableMetaDescriptionFunctions' ) ) {
-			// Functions and tags are disabled
-			return true;
-		}
-		$parser->setFunctionHook(
-			'description2',
-			[ static::class, 'parserFunctionCallbackShow' ],
-			Parser::SFH_OBJECT_ARGS
-		);
-		$parser->setFunctionHook(
-			'description2hide',
-			[ static::class, 'parserFunctionCallbackHide' ],
-			Parser::SFH_OBJECT_ARGS
-		);
-		return true;
+		$parserOutput->setPageProperty( 'description', $desc );
 	}
 
 	/**
@@ -118,22 +50,34 @@ class Description2 {
 	}
 
 	/**
-	 * @param OutputPage &$out The output page to add the meta element to.
-	 * @param ParserOutput $parserOutput The parser output to get the description from.
+	 * Returns no more than a requested number of characters, preserving words.
+	 *
+	 * Borrowed from TextExtracts.
+	 *
+	 * @param string $text Source plain text to extract from. HTML tags should be removed by the description provider.
+	 * @param int $requestedLength Maximum number of characters to return
+	 * @return string
 	 */
-	public static function onOutputPageParserOutput( OutputPage &$out, ParserOutput $parserOutput ) {
-		// Export the description from the main parser output into the OutputPage
-		if ( method_exists( $parserOutput, 'getPageProperty' ) ) {
-			// MW 1.38+
-			$description = $parserOutput->getPageProperty( 'description' );
-		} else {
-			$description = $parserOutput->getProperty( 'description' );
-			if ( $description === false ) {
-				$description = null;
-			}
+	public static function getFirstChars( string $text, int $requestedLength ) {
+		if ( $requestedLength <= 0 ) {
+			return '';
 		}
-		if ( $description !== null ) {
-			$out->addMeta( 'description', $description );
+
+		$length = mb_strlen( $text );
+		if ( $length <= $requestedLength ) {
+			return $text;
 		}
+
+		// The following (although in somewhat backwards order) cuts the text at given length and restores the end if it
+		// has been cut, with the ungreedy pattern always matching a single word built of word characters (no
+		// punctuation) and/or forward slashes.
+		$pattern = '/^[\w\/]*/su';
+		preg_match( $pattern, mb_substr( $text, $requestedLength ), $m );
+		$truncatedText = mb_substr( $text, 0, $requestedLength ) . $m[0];
+		if ( $truncatedText === $text ) {
+			return $text;
+		}
+
+		return trim( $truncatedText );
 	}
 }
